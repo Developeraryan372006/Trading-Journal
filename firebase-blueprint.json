@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "User Profile",
+      "description": "Holds the physical trading configuration, constitution limits, and details of a trader's account.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The authenticated trader's user identifier." },
+        "maxDailyLoss": { "type": "number", "description": "The peak limit profile value for daily losses." },
+        "maxTradesPerDay": { "type": "number", "description": "Trading boundary limits per day." },
+        "riskPerTradePercent": { "type": "number", "description": "Tactical risk limits per execution." },
+        "rules": { "type": "array", "description": "List of active constitution rules as strings." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "The clock tick of the last change." }
+      },
+      "required": ["userId"]
+    },
+    "dailyJournalEntry": {
+      "title": "Daily Journal Entry",
+      "description": "A single day's registered trades and AI tactical review pages.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "Target calendar date mapped as YYYY-MM-DD." },
+        "trades": { "type": "array", "description": "A list of logged executions with entry, exit, sizes and emotions." },
+        "manualReflections": { "type": "string", "description": "Handwritten observations made by the trader." },
+        "aiSummary": { "type": "object", "description": "AI analytical performance appraisal block." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp of original creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "The last modification timestamp." }
+      },
+      "required": ["date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "Primary user profiles indexing their customized constitutional trading plans."
+    },
+    "/users/{userId}/entries/{date}": {
+      "schema": "dailyJournalEntry",
+      "description": "Historical log index written by this active authenticated trader."
+    }
+  }
+}

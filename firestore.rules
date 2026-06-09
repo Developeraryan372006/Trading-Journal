@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net catch-all - default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation Blueprint for User Profiles
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId
+        && data.userId == request.auth.uid
+        && data.maxDailyLoss is number
+        && data.maxTradesPerDay is number
+        && data.riskPerTradePercent is number
+        && data.rules is list
+        && data.rules.size() <= 50
+        && (data.updatedAt is string || data.updatedAt == null);
+    }
+
+    // Validation Blueprint for Journal Entries
+    function isValidDailyJournalEntry(data) {
+      return data.date is string
+        && data.date.size() <= 32
+        && data.trades is list
+        && data.trades.size() <= 100
+        && data.manualReflections is string
+        && data.manualReflections.size() <= 50000
+        && (data.createdAt is string || data.createdAt == null)
+        && (data.updatedAt is string || data.updatedAt == null);
+    }
+
+    // Core rule definition for /users collection space
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) 
+                    && isVerifiedUser() 
+                    && isValidId(userId)
+                    && isValidUserProfile(request.resource.data, userId);
+      allow update: if isOwner(userId) 
+                    && isVerifiedUser() 
+                    && isValidUserProfile(request.resource.data, userId)
+                    && request.resource.data.userId == resource.data.userId; // owner matches
+      allow delete: if isOwner(userId);
+
+      // Embedded entry pages of the physical daily log sheets
+      match /entries/{date} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        
+        allow create: if isOwner(userId)
+                      && isVerifiedUser()
+                      && isValidId(date)
+                      && isValidDailyJournalEntry(request.resource.data);
+                      
+        allow update: if isOwner(userId)
+                      && isVerifiedUser()
+                      && isValidDailyJournalEntry(request.resource.data)
+                      && request.resource.data.date == resource.data.date; // Date is immutable
+                      
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
